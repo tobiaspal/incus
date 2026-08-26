@@ -2562,6 +2562,14 @@ func (d *zfs) MountVolume(vol Volume, op *operations.Operation) error {
 	// Check if filesystem volume already mounted.
 	if vol.contentType == ContentTypeFS && !d.isBlockBacked(vol) {
 		if !linux.IsMountPoint(mountPath) {
+			if zfsDelegate {
+				// Unset the zoned property (left behind by an unclean stop) so the mountpoint property can be updated.
+				err := d.setDatasetProperties(dataset, "zoned=off")
+				if err != nil {
+					return err
+				}
+			}
+
 			err := d.setDatasetProperties(dataset, "mountpoint=legacy", "canmount=noauto")
 			if err != nil {
 				return err
