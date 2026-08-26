@@ -38,6 +38,13 @@ do_zfs_delegate() {
     PID=$(incus info c1 | awk '/^PID:/ {print $2}')
     nsenter -t "${PID}" -U -- zfs list | grep -q containers/c1
 
+    # Confirm that a stale zoned property left by an unclean stop doesn't block starting when child datasets exist.
+    zpool_name=$(incus storage get "${storage_pool}" zfs.pool_name)
+    incus stop -f c1
+    zfs create "${zpool_name}/containers/c1/child"
+    zfs set zoned=on "${zpool_name}/containers/c1"
+    incus start c1
+
     # Confirm that ZFS dataset is empty when off.
     incus stop -f c1
     incus storage volume unset "${storage_pool}" container/c1 zfs.delegate
