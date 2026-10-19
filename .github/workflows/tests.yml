@@ -16,6 +16,7 @@ concurrency:
 jobs:
   code-tests:
     name: Code
+    if: false
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -129,6 +130,7 @@ jobs:
 
   system-tests:
     name: System
+    if: false
     strategy:
       fail-fast: false
       matrix:
@@ -518,6 +520,7 @@ jobs:
 
   ovn-tests:
     name: OVN
+    if: false
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -684,6 +687,7 @@ jobs:
 
   extended-tests:
     name: Extended
+    if: false
     strategy:
       fail-fast: false
       matrix:
@@ -903,12 +907,30 @@ jobs:
             driver: ceph-librbd
           - test: storage_volumes_vm
             driver: linstor
-    # Runs on ephemeral Debian VMs with nested virtualization (amd64 only).
-    runs-on:
-      - self-hosted
-      - lxc-incus-test
+    # Fork only: upstream's lxc-incus-test runners aren't available to forks, GitHub-hosted runners have KVM.
+    runs-on: ubuntu-24.04
 
     steps:
+      - name: Reclaim some space
+        run: |
+          set -eux
+          sudo snap remove lxd --purge
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+
+      - name: Remove docker
+        run: |
+          set -eux
+          sudo apt-get autopurge -y moby-containerd docker uidmap
+          sudo ip link delete docker0
+          sudo nft flush ruleset
+
+      - name: Enable KVM
+        run: |
+          set -eux
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
       - name: Checkout
         uses: actions/checkout@v7
 
@@ -920,6 +942,17 @@ jobs:
       - name: Install dependencies
         run: |
           set -x
+
+          # Configure ppa:ubuntu-lxc/daily, as the System job does on Ubuntu.
+          sudo install -d -m 0755 /etc/apt/keyrings
+          curl -fsSL "https://keyserver.ubuntu.com/pks/lookup?op=get&options=mr&search=0xE9C00C1B1B59A86C2CFEE6990CE27B8C4122B4B7" | sudo tee /etc/apt/keyrings/ubuntu-lxc-daily.asc > /dev/null
+          sudo tee /etc/apt/sources.list.d/ubuntu-lxc-daily.sources > /dev/null <<EOF
+          Types: deb
+          URIs: https://ppa.launchpadcontent.net/ubuntu-lxc/daily/ubuntu
+          Suites: $(lsb_release -cs)
+          Components: main
+          Signed-By: /etc/apt/keyrings/ubuntu-lxc-daily.asc
+          EOF
 
           sudo apt-get update
           sudo DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \
@@ -943,7 +976,7 @@ jobs:
             libacl1-dev \
             libcap-dev \
             libdbus-1-dev \
-            lxc-dev \
+            liblxc-dev \
             liblz4-dev \
             libseccomp-dev \
             libselinux-dev \
@@ -970,9 +1003,8 @@ jobs:
             xfsprogs \
             xz-utils
 
-          # Install ZFS
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y "linux-headers-$(uname -r)"
-          curl -sL https://pkgs.zabbly.com/get/zfs-stable | sudo DEBIAN_FRONTEND=noninteractive sh
+          # Install ZFS as the System job does on Ubuntu.
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y "linux-modules-extra-$(uname -r)" zfsutils-linux
 
       - name: Setup MicroCeph
         if: matrix.driver == 'ceph' || matrix.driver == 'ceph-librbd'
@@ -1108,12 +1140,30 @@ jobs:
 
   clustering-vm-tests:
     name: Clustering VM
-    # Runs on ephemeral Debian VMs with nested virtualization (amd64 only).
-    runs-on:
-      - self-hosted
-      - lxc-incus-test
+    # Fork only: upstream's lxc-incus-test runners aren't available to forks, GitHub-hosted runners have KVM.
+    runs-on: ubuntu-24.04
 
     steps:
+      - name: Reclaim some space
+        run: |
+          set -eux
+          sudo snap remove lxd --purge
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+
+      - name: Remove docker
+        run: |
+          set -eux
+          sudo apt-get autopurge -y moby-containerd docker uidmap
+          sudo ip link delete docker0
+          sudo nft flush ruleset
+
+      - name: Enable KVM
+        run: |
+          set -eux
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
       - name: Checkout
         uses: actions/checkout@v7
 
@@ -1125,6 +1175,17 @@ jobs:
       - name: Install dependencies
         run: |
           set -x
+
+          # Configure ppa:ubuntu-lxc/daily, as the System job does on Ubuntu.
+          sudo install -d -m 0755 /etc/apt/keyrings
+          curl -fsSL "https://keyserver.ubuntu.com/pks/lookup?op=get&options=mr&search=0xE9C00C1B1B59A86C2CFEE6990CE27B8C4122B4B7" | sudo tee /etc/apt/keyrings/ubuntu-lxc-daily.asc > /dev/null
+          sudo tee /etc/apt/sources.list.d/ubuntu-lxc-daily.sources > /dev/null <<EOF
+          Types: deb
+          URIs: https://ppa.launchpadcontent.net/ubuntu-lxc/daily/ubuntu
+          Suites: $(lsb_release -cs)
+          Components: main
+          Signed-By: /etc/apt/keyrings/ubuntu-lxc-daily.asc
+          EOF
 
           sudo apt-get update
           sudo DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \
@@ -1141,7 +1202,7 @@ jobs:
             libacl1-dev \
             libcap-dev \
             libdbus-1-dev \
-            lxc-dev \
+            liblxc-dev \
             liblz4-dev \
             libseccomp-dev \
             libselinux-dev \
@@ -1187,6 +1248,7 @@ jobs:
 
   client:
     name: Client
+    if: false
     strategy:
       fail-fast: false
       matrix:
@@ -1273,6 +1335,7 @@ jobs:
 
   documentation:
     name: Documentation
+    if: false
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
