@@ -63,6 +63,25 @@ do_zfs_delegate() {
     ! nsenter -t "${PID}" -U -- zfs list | grep -q containers/c1
 
     incus delete -f c1
+
+    # Confirm that a zoned flag left behind by an unclean stop doesn't block starting, renaming or deleting.
+    incus init testimage c1
+    incus storage volume set "${storage_pool}" container/c1 zfs.delegate=true
+    incus start c1
+    PID=$(incus info c1 | awk '/^PID:/ {print $2}')
+    nsenter -t "${PID}" -U -- zfs create "${zfs_pool}/containers/c1/child"
+    nsenter -t "${PID}" -U -- zfs snapshot "${zfs_pool}/containers/c1/child@snap"
+
+    # The clone makes the delete rename the dataset instead of destroying it.
+    nsenter -t "${PID}" -U -- zfs clone "${zfs_pool}/containers/c1/child@snap" "${zfs_pool}/containers/c1/clone"
+    incus stop -f c1
+    zfs set zoned=on "${zfs_pool}/containers/c1"
+    incus start c1
+    incus stop -f c1
+    zfs set zoned=on "${zfs_pool}/containers/c1"
+    incus rename c1 c2
+    zfs set zoned=on "${zfs_pool}/containers/c2"
+    incus delete c2
 }
 
 do_zfs_encryption() {
