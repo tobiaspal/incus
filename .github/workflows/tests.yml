@@ -868,45 +868,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # Fork only: the jobs that failed with the stale zoned fix, run here without it.
         include:
-          - test: cloud_init_vm
-          - test: cpu_vm
-          - test: guestapi_vm
-          - test: network_routed
           - test: nvram_vm
           - test: storage_disks_vm
-          - test: storage_vm
-            driver: dir
-          - test: storage_vm
-            driver: btrfs
-          - test: storage_vm
-            driver: lvm
-          - test: storage_vm
-            driver: lvm-thin
-          - test: storage_vm
-            driver: zfs
-          - test: storage_vm
-            driver: ceph
-          - test: storage_vm
-            driver: ceph-librbd
-          - test: storage_vm
-            driver: linstor
-          - test: storage_volumes_vm
-            driver: dir
-          - test: storage_volumes_vm
-            driver: btrfs
-          - test: storage_volumes_vm
-            driver: lvm
-          - test: storage_volumes_vm
-            driver: lvm-thin
-          - test: storage_volumes_vm
-            driver: zfs
-          - test: storage_volumes_vm
-            driver: ceph
-          - test: storage_volumes_vm
-            driver: ceph-librbd
-          - test: storage_volumes_vm
-            driver: linstor
     # Fork only: upstream's lxc-incus-test runners aren't available to forks, GitHub-hosted runners have KVM.
     runs-on: ubuntu-24.04
 
