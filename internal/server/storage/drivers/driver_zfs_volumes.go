@@ -1716,8 +1716,21 @@ func (d *zfs) deleteVolume(vol Volume, op *operations.Operation) error {
 		}
 
 		if len(clones) > 0 {
+			// A zoned flag left behind by an unclean stop blocks the rename.
+			zoned, err := d.getDatasetProperty(d.dataset(vol, false), "zoned")
+			if err != nil {
+				return err
+			}
+
+			if zoned == "on" {
+				err = d.resetDelegatedDataset(d.dataset(vol, false))
+				if err != nil {
+					return err
+				}
+			}
+
 			// Move to the deleted path.
-			_, err := subprocess.RunCommand("/proc/self/exe", "forkzfs", "--", "rename", d.dataset(vol, false), d.dataset(vol, true))
+			_, err = subprocess.RunCommand("/proc/self/exe", "forkzfs", "--", "rename", d.dataset(vol, false), d.dataset(vol, true))
 			if err != nil {
 				return err
 			}
@@ -2799,6 +2812,19 @@ func (d *zfs) RenameVolume(vol Volume, newVolName string, op *operations.Operati
 	reverter.Add(func() {
 		_ = genericVFSRenameVolume(d, newVol, vol.name, op)
 	})
+
+	// A zoned flag left behind by an unclean stop blocks the rename.
+	zoned, err := d.getDatasetProperty(d.dataset(vol, false), "zoned")
+	if err != nil {
+		return err
+	}
+
+	if zoned == "on" {
+		err = d.resetDelegatedDataset(d.dataset(vol, false))
+		if err != nil {
+			return err
+		}
+	}
 
 	// Rename the ZFS datasets.
 	_, err = subprocess.RunCommand("zfs", "rename", d.dataset(vol, false), d.dataset(newVol, false))
